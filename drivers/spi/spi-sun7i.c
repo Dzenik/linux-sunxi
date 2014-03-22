@@ -1696,15 +1696,15 @@ static int sun7i_spi_resume(struct platform_device *pdev)
 #define sun7i_spi_resume    NULL
 #endif /* CONFIG_PM */
 
-static struct platform_driver __refdata sun7i_spi_driver = {
-	.driver = {
-        .name	= "sun7i-spi",
-		.owner = THIS_MODULE,
-	},
-	.probe   = sun7i_spi_probe,
-	.remove  = sun7i_spi_remove,
-	.suspend = sun7i_spi_suspend,
-	.resume  = sun7i_spi_resume,
+tatic struct platform_driver sun7i_spi_driver = {
+    .probe   = sun7i_spi_probe,
+    .remove  = sun7i_spi_remove,
+    .suspend = sun7i_spi_suspend,
+    .resume  = sun7i_spi_resume,
+    .driver = {
+        .name   = "sun7i-spi",
+        .owner = THIS_MODULE,
+    },
 };
 
 /* spi resouce and platform data start */
@@ -2026,6 +2026,48 @@ static int sun7i_spi_get_cfg_csbitmap(int bus_num)
 
 }
 
+#ifdef CONFIG_SUN7I_SPI_NORFLASH
+#include <linux/spi/flash.h>
+#include <linux/mtd/partitions.h>
+
+/*struct mtd_partition part = {
+	.name = "p1",
+	.size = 8388608,
+	.offset = 0,
+};*/
+
+static struct flash_platform_data at25df641_info = {
+    .name = "m25p80",
+    .parts = NULL,
+    .nr_parts = 0,
+    .type = "at25df641",
+};
+
+static struct spi_board_info norflash = {
+    .modalias = "m25p80",
+    .platform_data = &at25df641_info,
+    .mode = SPI_MODE_0,
+    .irq = 0,
+    .max_speed_hz = 10 * 1000 * 1000,
+    .bus_num = 0,
+    .chip_select = 0,
+};
+
+static void __init sun7i_spi_norflash(void)
+{
+    if (spi_register_board_info(&norflash, 1)) {
+        spi_err("%s: Register norflash:%s information failed\n",
+                __func__, at25df641_info.type);
+    } else {
+        spi_inf("%s: Register norflash:%s information OK\n",
+                __func__, at25df641_info.type);
+    }
+}
+#else
+static void __init sun7i_spi_norflash(void)
+{}
+#endif /* CONFIG_SUN7I_SPI_NORFLASH */
+
 /* get configuration in the script */
 #define SPI0_USED_MASK 0x1
 #define SPI1_USED_MASK 0x2
@@ -2061,6 +2103,8 @@ static int __init spi_sun7i_init(void)
     {
         spi_err("register spi devices board info failed \n");
     }
+
+//    sun7i_spi_norflash();
 
     if (spi_used & SPI0_USED_MASK)
         platform_device_register(&sun7i_spi0_device);

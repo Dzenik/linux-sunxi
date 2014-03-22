@@ -17,6 +17,7 @@
  * MA 02111-1307 USA
  */
 
+#include <linux/kobject.h>
 #include <linux/module.h>
 #include <plat/system.h>
 #include "../disp/sunxi_disp_regs.h"
@@ -63,6 +64,7 @@ struct __disp_video_timing video_timing[] = {
 	{ HDMI720P_60_3D_FP,  148500000,  0,  1280, 1440, 1650, 260, 110, 40,  750, 25,  5,  5, 0,  1,  1 },
 	{ HDMI1360_768_60,     85500000,  0,  1360,  768, 1792, 368, 64, 112,  795, 24,  3,  6, 0,  1,  1 },
 	{ HDMI1280_1024_60,   108000000,  0,  1280, 1024, 1688, 360, 48, 112, 1066, 41,  1,  3, 0,  1,  1 },
+	{ HDMI1366_768_60,     80000000,  0,  1366,  768, 1648, 238,  44, 64, 1620, 25, 17,  3, 0,  1,  1 },
 	{ HDMI_EDID, } /* Entry reserved for EDID detected preferred timing */
 };
 
@@ -106,8 +108,7 @@ __s32 hdmi_core_initial(void)
 	return 0;
 }
 
-static __s32
-main_Hpd_Check(void)
+static __s32 main_Hpd_Check(void)
 {
 	__s32 i, times;
 	times = 0;
@@ -123,6 +124,16 @@ main_Hpd_Check(void)
 		return 0;
 }
 
+int is_hdmi_plugin(void)
+{
+	int flag = main_Hpd_Check();
+	return flag;
+}
+EXPORT_SYMBOL(is_hdmi_plugin);
+
+
+extern void notify_hdmi_change(enum kobject_action action);
+
 __s32 hdmi_main_task_loop(void)
 {
 	int rc, i;
@@ -131,6 +142,7 @@ __s32 hdmi_main_task_loop(void)
 	if (!HPD && hdmi_state > HDMI_State_Wait_Hpd) {
 		__inf("plugout\n");
 		hdmi_state = HDMI_State_Wait_Hpd;
+		notify_hdmi_change(KOBJ_OFFLINE);
 	}
 
 	hdmi_cec_task_loop();
@@ -141,6 +153,7 @@ __s32 hdmi_main_task_loop(void)
 		if (HPD) {
 			hdmi_state = HDMI_State_EDID_Parse;
 			__inf("plugin\n");
+			notify_hdmi_change(KOBJ_ONLINE);
 		} else
 			return 0;
 
